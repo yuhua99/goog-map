@@ -1,9 +1,11 @@
 ---
-name: google-maps-agent
+name: goog-map
 description: Use this skill whenever the user needs Google Maps based place search, place details, opening hours, route planning, travel time estimation, multi-stop itinerary checking, or KML export for Google My Maps. Trigger it for requests about restaurants, attractions, addresses, commute comparison, trip planning, and map export even when the user does not explicitly say Google Maps, Places API, Routes API, or KML.
 ---
 
-Use the bundled CLI at `scripts/map_cli.py`.
+Use the bundled CLI at `scripts/map_cli.py`, resolved relative to this `SKILL.md` file rather than assuming the current working directory is the repo root.
+
+When running commands from another working directory, first resolve the directory containing `SKILL.md`, then invoke `scripts/map_cli.py` from there.
 
 This skill is a high-level wrapper around four commands:
 
@@ -41,6 +43,8 @@ Do not introduce low-level Google parameters such as field masks, routing prefer
 Prefer reusing `place_id` once you have it. It is more reliable than free-form address text.
 
 ## Command usage
+
+All example paths are relative to this `SKILL.md` file, not the caller's current working directory.
 
 ### `search_places`
 
