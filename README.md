@@ -41,15 +41,7 @@ You should enable the Google APIs required by the bundled CLI in your Google Clo
 
 ## Install the skill
 
-Install the skill with `bunx skills add`.
-
-Install from GitHub with:
-
-```bash
-bunx skills add https://github.com/yuhua99/goog-map
-```
-
-Example:
+Install from GitHub:
 
 ```bash
 bunx skills add https://github.com/yuhua99/goog-map
