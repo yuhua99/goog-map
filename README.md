@@ -29,6 +29,8 @@ It is designed to be used by an AI agent at a high level instead of exposing raw
 
 This skill requires a Google Maps API key in the `MAPS_API_KEY` environment variable.
 
+To get a Google Maps API key, create or select a Google Cloud project, enable billing, enable the `Places API` and `Routes API`, then create an API key in Google Cloud Console. For production use, restrict the key to the APIs you need and to your app, server IPs, or HTTP referrers. See the official setup guide: `https://developers.google.com/maps/get-started`
+
 Example:
 
 ```bash
