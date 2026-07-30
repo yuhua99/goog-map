@@ -5,34 +5,30 @@ description: "Explain a code change to a human reviewer. Use only when the user 
 
 # Human Review
 
-All comment text is **zh-tw**.
+Write comments in **zh-tw**.
 
 ## Tool
-- Wrapper: `{baseDir}/scripts/tuicr-review.sh`.
-- Subcommands:
-  - `start [--repo PATH] [SCOPE]` — open the review; print session slug.
-  - `comments [--repo PATH]` — new human comments as a JSON array.
-  - `add [--repo PATH] <flags> "text"` — post a comment (requires an open session). Flags: `--target-file`, `--line`, `--end-line`, `--side old|new`, `--type issue|suggestion|note|praise`.
+`{baseDir}/scripts/tuicr-review.sh`:
+- `start [--repo PATH] [SCOPE]` — open a review and print its slug.
+- `comments [--repo PATH]` — print new comments as JSON.
+- `add [--repo PATH] <flags> "text"` — post a comment. Flags: `--target-file`, `--line`, `--end-line`, `--side old|new`, `--type issue|suggestion|note|praise`.
 
-## Scope
-Pass SCOPE to `start`: `working` (uncommitted, default), a git revision/range (e.g. `start HEAD`, `start main..HEAD`), or `start pr <n>`. Ask once if scope is missing.
+Ask once if SCOPE is missing. Use `working`, a revision/range, or `pr <n>`.
 
 ## Workflow
-1. Gather: `git --no-pager show/diff` for the scope; read surrounding code when a hunk's intent depends on it.
-2. Group hunks by **logical group** (concern, not file order). Draft every comment before `start`.
-   Done when: every non-trivial group has how + why + one anticipated objection (or "no surprises"); trivial/repeated hunks are annotated once and summarized at review level; secrets redacted (`<password>`, `<ip>`).
-3. `start` (capture slug), then `add` every drafted comment. Per logical group:
-   - File-level (`--target-file`, no `--line`): one sentence on what the change does.
-   - Line/range (`--line`/`--end-line`) at the most relevant code: **how** (mechanism, before/after — assume the reviewer has not read this code); **why** (rationale + rejected alternatives); sharpest reviewer objection, answered up front. Separate how / why / objection with blank lines. Short for a trivial hunk; drop the objection for rote/repeated hunks.
-   - Review-level (no `--target-file`): overview of the groups + **scope cuts** ("What I deliberately did NOT do") with reasons.
-   - `--type`: `issue` for a problem you flag; else `note` / `suggestion` / `praise`.
-   Done when every logical group is anchored to its code (file- or line-level), not only the review-level overview.
-4. On the automatic follow-up message:
+1. Read the scoped `git show/diff` and any code needed to understand it.
+2. Group hunks by concern and draft all comments before `start`. For each non-trivial group, cover how, why, and the likely objection. Annotate repetitions once, summarize them review-wide, and redact secrets.
+3. Run `start`, then `add`:
+   - File-level: one-sentence summary.
+   - Relevant line/range: how, why, and objection, separated by blank lines. Omit the objection for rote changes.
+   - Review-level: overview and deliberate scope cuts with reasons.
+   - Use `issue` only for problems. Anchor every group to code.
+4. Follow-up:
    - `approved` → stop.
-   - Otherwise, address each comment, answer, fix code where warranted, then `start` again with the SAME scope and `add` replies near each comment.
+   - New comments → address each, fix as needed, restart the same scope, and reply nearby.
+   - Fetch failure → run `comments` manually.
 
 ## Gotchas
-- `start` says a review is already open → ask the human to close it (press q), retry.
-- `approved` means approval; do not call `comments` after receiving it.
-- Abnormal exit sends no trigger; the human will say when they are done.
-- Amend/rebase changes scope identity → next `start` is a NEW session; never `add` into a closed one.
+- Existing open review → ask the human to press `q`, then retry.
+- Abnormal exit sends no trigger.
+- Amend/rebase creates a new scope identity; start a new session.

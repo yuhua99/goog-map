@@ -164,10 +164,11 @@ cmd_start() {
         printf '#!/usr/bin/env bash\n'
         printf 'if %s; then\n' "$tuicr_cmd"
         printf '  if comments="$(%q comments --repo %q)"; then\n' "$wrapper_path" "$repo"
-        printf '    if printf "%%s" "$comments" | jq -e "type == \"array\" and length == 0" >/dev/null; then\n'
+        printf '    if printf "%%s" "$comments" | jq -e "type == \\\"array\\\" and length == 0" >/dev/null; then\n'
         printf '      message="approved"\n'
         printf '    else\n'
-        printf '      message="Human finished the review. New comments JSON:\n$comments"\n'
+        printf '      comments_text="$(printf "%%s" "$comments" | jq -r ".[] | \\"- \\(.location): \\(.content)\\"")"\n'
+        printf '      message="Human finished the review. New comments:\n$comments_text"\n'
         printf '    fi\n'
         printf '  else\n'
         printf '    message="Human finished the review, but fetching new comments failed. Run the human-review comments subcommand manually."\n'
