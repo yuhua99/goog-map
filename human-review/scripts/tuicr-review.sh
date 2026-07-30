@@ -14,7 +14,7 @@ Subcommands:
   start [--repo PATH] [SCOPE...]
       Open the review for SCOPE and print the session slug. SCOPE is 'working'
       (uncommitted changes, the default), a git revision/range, or 'pr <n>'.
-      When the human finishes, a trigger message is sent back to read comments.
+      When the human finishes, a trigger message is sent back with new comments.
 
   comments [--repo PATH]
       Print new human comments for the current review as a JSON array.
@@ -131,14 +131,19 @@ cmd_start() {
     preflight
     prune_state
 
-    local repo
+    local repo wrapper_path source
     repo="$(resolve_repo "$REPO")"
+    source="${BASH_SOURCE[0]}"
+    if [[ "$source" != */* ]]; then
+        source="$(command -v "$source")"
+    fi
+    wrapper_path="$(cd -- "$(dirname -- "$source")" && pwd -P)/$(basename -- "$source")"
 
     if tmux list-panes -F '#{pane_current_command}' 2>/dev/null | grep -qx tuicr; then
         die "tuicr already running in another pane; ask the human to close it first (press q)."
     fi
 
-    local agent_pane win_h lines trigger tuicr_cmd new_pane before
+    local agent_pane win_h lines tuicr_cmd new_pane before
     before="$(tuicr review list --repo "$repo" 2>/dev/null | jq -r '.[].slug' || true)"
     agent_pane="$TMUX_PANE"
     win_h="$(tmux display-message -p '#{window_height}')"
@@ -153,14 +158,21 @@ cmd_start() {
         tuicr_cmd+=" $(printf '%q' "$a")"
     done
 
-    trigger="Human finished the review. Run the human-review 'comments' subcommand to read the new comments."
-
     local launcher
     launcher="$(mktemp "${TMPDIR:-/tmp}/tuicr-launch.XXXXXX")"
     {
         printf '#!/usr/bin/env bash\n'
         printf 'if %s; then\n' "$tuicr_cmd"
-        printf '  if tmux send-keys -t %q -l %q 2>/dev/null; then\n' "$agent_pane" "$trigger"
+        printf '  if comments="$(%q comments --repo %q)"; then\n' "$wrapper_path" "$repo"
+        printf '    if printf "%%s" "$comments" | jq -e "type == \"array\" and length == 0" >/dev/null; then\n'
+        printf '      message="approved"\n'
+        printf '    else\n'
+        printf '      message="Human finished the review. New comments JSON:\n$comments"\n'
+        printf '    fi\n'
+        printf '  else\n'
+        printf '    message="Human finished the review, but fetching new comments failed. Run the human-review comments subcommand manually."\n'
+        printf '  fi\n'
+        printf '  if tmux send-keys -t %q -l "$message" 2>/dev/null; then\n' "$agent_pane"
         printf '    tmux send-keys -t %q Enter 2>/dev/null || true\n' "$agent_pane"
         printf '  fi\n'
         printf 'fi\n'
@@ -170,7 +182,7 @@ cmd_start() {
     new_pane="$(tmux split-window -d -P -F '#{pane_id}' -b -l "$lines" -c "$repo" "bash $(printf '%q' "$launcher")")"
     tmux select-pane -t "$new_pane"
 
-    local repohash slugfile slug i
+    local repohash slugfile slug slughash roundfile round i
     repohash="$(sha16 "$repo")"
     slugfile="$STATE_DIR/${repohash}.slug"
     rm -f "$slugfile"
@@ -184,6 +196,12 @@ cmd_start() {
               // (if ($act | length) == 1 then $act[0] else empty end)')"
         if [ -n "$slug" ]; then
             printf '%s\n' "$slug" > "$slugfile"
+            slughash="$(sha16 "$slug")"
+            roundfile="$STATE_DIR/${slughash}.round"
+            round=0
+            [ -s "$roundfile" ] && round="$(<"$roundfile")"
+            round=$((round + 1))
+            printf '%s\n' "$round" > "$roundfile"
             printf '%s\n' "$slug"
             return
         fi
@@ -220,7 +238,7 @@ cmd_comments() {
 cmd_add() {
     parse_repo_arg "$@"
     need tuicr; need jq
-    local repo slug slughash seenfile out id active_slug
+    local repo slug slughash roundfile round seenfile out id active_slug
     repo="$(resolve_repo "$REPO")"
 
     active_slug="$(tuicr review list --repo "$repo" 2>/dev/null | jq -r '[.[] | select(.active == true)] | if length == 1 then .[0].slug else empty end')"
@@ -229,18 +247,22 @@ cmd_add() {
     fi
     slug="$active_slug"
     printf '%s\n' "$slug" > "$STATE_DIR/$(sha16 "$repo").slug"
+    slughash="$(sha16 "$slug")"
+    roundfile="$STATE_DIR/${slughash}.round"
+    [ -s "$roundfile" ] || die "no review round for this session; run 'start <scope>' before posting a comment."
+    round="$(<"$roundfile")"
+    touch "$roundfile"
 
     add_once() {
         if [ "${#PASSTHRU[@]}" -gt 0 ]; then
-            tuicr review add --repo "$repo" --session "$slug" --username "$AGENT_USER" "${PASSTHRU[@]}"
+            tuicr review add --repo "$repo" --session "$slug" --username "${AGENT_USER}[r${round}]" "${PASSTHRU[@]}"
         else
-            tuicr review add --repo "$repo" --session "$slug" --username "$AGENT_USER"
+            tuicr review add --repo "$repo" --session "$slug" --username "${AGENT_USER}[r${round}]"
         fi
     }
 
     out="$(add_once)" || die "posting failed (session may have just closed); run 'start <scope>' and re-post."
 
-    slughash="$(sha16 "$slug")"
     seenfile="$STATE_DIR/${slughash}.seen"
     touch "$seenfile"
     if ! id="$(printf '%s' "$out" | jq -r '.id // empty' 2>/dev/null)" || [ -z "$id" ] || [ "$id" = "null" ]; then

@@ -27,12 +27,12 @@ Pass SCOPE to `start`: `working` (uncommitted, default), a git revision/range (e
    - Review-level (no `--target-file`): overview of the groups + **scope cuts** ("What I deliberately did NOT do") with reasons.
    - `--type`: `issue` for a problem you flag; else `note` / `suggestion` / `praise`.
    Done when every logical group is anchored to its code (file- or line-level), not only the review-level overview.
-4. On trigger, `comments`:
-   - `[]` → approved; stop.
-   - Else address each: answer, fix code where warranted, then `start` again with the SAME scope, then `add` replies near each comment. Repeat until `comments` is `[]`.
+4. On the automatic follow-up message:
+   - `approved` → stop.
+   - Otherwise, address each comment, answer, fix code where warranted, then `start` again with the SAME scope and `add` replies near each comment.
 
 ## Gotchas
 - `start` says a review is already open → ask the human to close it (press q), retry.
-- `comments` returns `[]` right after the trigger → treat as approval.
+- `approved` means approval; do not call `comments` after receiving it.
 - Abnormal exit sends no trigger; the human will say when they are done.
 - Amend/rebase changes scope identity → next `start` is a NEW session; never `add` into a closed one.
