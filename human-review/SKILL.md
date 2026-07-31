@@ -1,6 +1,7 @@
 ---
 name: human-review
 description: "Explain a code change to a human reviewer. Use only when the user explicitly says they will review the change themselves."
+disable-model-invocation: true
 ---
 
 # Human Review
