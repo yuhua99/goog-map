@@ -139,16 +139,13 @@ cmd_start() {
     fi
     wrapper_path="$(cd -- "$(dirname -- "$source")" && pwd -P)/$(basename -- "$source")"
 
-    if tmux list-panes -F '#{pane_current_command}' 2>/dev/null | grep -qx tuicr; then
-        die "tuicr already running in another pane; ask the human to close it first (press q)."
+    if tmux list-windows -F '#{window_name}' 2>/dev/null | grep -qx review; then
+        die "review window already open; ask the human to close it first (press q)."
     fi
 
-    local agent_pane win_h lines tuicr_cmd new_pane before
+    local agent_pane tuicr_cmd new_window before
     before="$(tuicr review list --repo "$repo" 2>/dev/null | jq -r '.[].slug' || true)"
     agent_pane="$TMUX_PANE"
-    win_h="$(tmux display-message -p '#{window_height}')"
-    lines=$(( win_h * 80 / 100 ))
-    [ "$lines" -lt 1 ] && lines=1
 
     local -a TUICR_ARGS
     scope_to_tuicr
@@ -164,24 +161,29 @@ cmd_start() {
         printf '#!/usr/bin/env bash\n'
         printf 'if %s; then\n' "$tuicr_cmd"
         printf '  if comments="$(%q comments --repo %q)"; then\n' "$wrapper_path" "$repo"
+        printf '    submit=1\n'
         printf '    if printf "%%s" "$comments" | jq -e "type == \\\"array\\\" and length == 0" >/dev/null; then\n'
         printf '      message="approved"\n'
+        printf '      submit=0\n'
         printf '    else\n'
         printf '      comments_text="$(printf "%%s" "$comments" | jq -r ".[] | \\"- \\(.location): \\(.content)\\"")"\n'
         printf '      message="Human finished the review. New comments:\n$comments_text"\n'
         printf '    fi\n'
         printf '  else\n'
         printf '    message="Human finished the review, but fetching new comments failed. Run the human-review comments subcommand manually."\n'
+        printf '    submit=1\n'
         printf '  fi\n'
         printf '  if tmux send-keys -t %q -l "$message" 2>/dev/null; then\n' "$agent_pane"
-        printf '    tmux send-keys -t %q Enter 2>/dev/null || true\n' "$agent_pane"
+        printf '    if [ "$submit" = 1 ]; then\n'
+        printf '      tmux send-keys -t %q Enter 2>/dev/null || true\n' "$agent_pane"
+        printf '    fi\n'
         printf '  fi\n'
         printf 'fi\n'
         printf 'rm -f -- "$0"\n'
     } > "$launcher"
 
-    new_pane="$(tmux split-window -d -P -F '#{pane_id}' -b -l "$lines" -c "$repo" "bash $(printf '%q' "$launcher")")"
-    tmux select-pane -t "$new_pane"
+    new_window="$(tmux new-window -d -P -F '#{window_id}' -a -n review -c "$repo" "bash $(printf '%q' "$launcher")")"
+    tmux select-window -t "$new_window"
 
     local repohash slugfile slug slughash roundfile round i
     repohash="$(sha16 "$repo")"
