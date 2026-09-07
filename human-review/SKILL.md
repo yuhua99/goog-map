@@ -18,22 +18,22 @@ Ask once if SCOPE is missing. Use `working`, a revision/range, or `pr <n>`.
 
 ## Workflow
 1. Read the scoped `git show/diff` and surrounding code.
-   Done when you can name the *delta* of each touched function against the old behavior.
+   Act as the change's author walking a human through the implementation, rather than conducting a separate defect review.
+   Done when you can explain the old and new behavior of each meaningful changed block.
 
 2. Group hunks by concern and draft all comments before `start`.
-   Every non-trivial function or decision gets its own comment, anchored to that function or the few lines that carry the decision.
-   For each, cover the *delta*, why, and the likely objection.
-   A transform or protocol change carries one toy before/after.
-   Annotate repetitions once, summarize them review-wide, and redact secrets.
+   Split each hunk into logical blocks of one or a few adjacent lines. Explain each block's old behavior -> change -> new behavior, and why; explain intent and effects rather than paraphrasing syntax.
+   Give distinct changes within a function separate comments, anchored to the relevant lines.
+   Summarize tests, codegen, and pure moves in one line per logical group; still name any behavior or test-expectation changes.
+   Ground reasons in the implementation context; label inferred reasons as assumptions.
+   Add a likely objection or toy before/after only when it clarifies a trade-off or a confusing change. Redact secrets.
+   Done when every changed hunk is covered by block-level explanations or explicitly included in a brief-summary exception above.
 
 3. Run `start`, then `add`:
-   - File-level: one-sentence *delta*.
-   - Function or decision: *delta*, why, and objection, separated by blank lines.
-     Omit the objection for rote changes.
-   - Review-level: the *intuition* the later comments hang on,
-     which group to read first and why,
-     then deliberate scope cuts with reasons.
-   - Use `issue` only for problems. Anchor every group to code.
+   - Review-level first: the change's purpose, which concern to read first, and why.
+   - Inline: the block-level explanations and brief summaries from step 2. Anchor each to the relevant code.
+   - File-level: only context not already covered by the review-level or inline comments.
+   - Use `issue` only for problems.
 
 4. Follow-up:
    - `approved` → stop.
